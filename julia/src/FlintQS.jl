@@ -10,5 +10,6 @@ include("factorbase.jl")
 include("polynomials.jl")
 include("sieve.jl")
 include("relations.jl")
+include("lanczos.jl")
 
 end # module
