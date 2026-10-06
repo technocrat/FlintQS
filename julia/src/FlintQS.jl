@@ -4,5 +4,6 @@ module FlintQS
 using Random
 
 include("util.jl")
+include("modarith.jl")
 
 end # module
