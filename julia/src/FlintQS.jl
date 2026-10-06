@@ -43,7 +43,7 @@ function collect_relations!(store::RelationStore, st::SIQSState, target::Int, rn
 end
 
 "Square-root step for one dependency; returns a nontrivial divisor of `n` or `nothing`."
-function try_dependency(rels::Vector{Relation}, dep::BitVector, fb::FactorBase, kn::BigInt, n::BigInt)
+function try_dependency(rels::Vector{Relation}, dep::BitVector, fb::FactorBase, kn::BigInt, n::BigInt, accept)
     counts = zeros(Int, length(fb.primes) + 1)
     X = BigInt(1)
     for j in findall(dep)
@@ -59,13 +59,13 @@ function try_dependency(rels::Vector{Relation}, dep::BitVector, fb::FactorBase, 
         c == 0 && continue
         Y = mod(Y * powermod(BigInt(fb.primes[row-1]), c ÷ 2, kn), kn)
     end
-    for g in (gcd(X - Y, n), gcd(X + Y, n))
-        1 < g < n && return g
+    for g in (gcd(X - Y, n), gcd(X + Y, n)), h in (g, n ÷ g)
+        1 < h < n && accept(h) && return h
     end
     return nothing
 end
 
-function dependencies_to_factor(store::RelationStore, fb::FactorBase, kn::BigInt, n::BigInt, rng)
+function dependencies_to_factor(store::RelationStore, fb::FactorBase, kn::BigInt, n::BigInt, rng, accept)
     rels = vcat(store.fulls, store.combined)
     nrows = length(fb.primes) + 1
     cols = [parity_rows(r.fac) for r in rels]
@@ -75,7 +75,7 @@ function dependencies_to_factor(store::RelationStore, fb::FactorBase, kn::BigInt
     kept_cols = cols[keep]
     for _ in 1:5
         for dep in block_lanczos(kept_cols, nrows; rng = rng)
-            d = try_dependency(kept_rels, dep, fb, kn, n)
+            d = try_dependency(kept_rels, dep, fb, kn, n, accept)
             d !== nothing && return d
         end
     end
@@ -83,12 +83,14 @@ function dependencies_to_factor(store::RelationStore, fb::FactorBase, kn::BigInt
 end
 
 """
-    siqs_split(n; rng, verbose) -> BigInt
+    siqs_split(n; rng, verbose, accept) -> BigInt
 
 Return a nontrivial divisor of the composite `n` using the self-initializing quadratic sieve.
 `n` must have at least 40 decimal digits, no prime factor below 1000 and not be a perfect power.
+`accept(d)` filters which divisors may be returned (default: any); the search continues through
+the remaining dependencies, and further sieving, until one is accepted.
 """
-function siqs_split(n::BigInt; rng = Random.default_rng(), verbose::Bool = false)
+function siqs_split(n::BigInt; rng = Random.default_rng(), verbose::Bool = false, accept = _ -> true)
     P = params_for(ndigits(n))
     k = knuth_schroeppel(n)
     kn = k * n
@@ -96,18 +98,14 @@ function siqs_split(n::BigInt; rng = Random.default_rng(), verbose::Bool = false
     st = SIQSState(kn, fb, P)
     store = RelationStore(kn)
     target = P.nprimes + 64
-    try
-        while true
-            collect_relations!(store, st, target, rng, verbose)
-            d = dependencies_to_factor(store, fb, kn, n, rng)
-            d !== nothing && return d
-            target += 64
+    while true
+        collect_relations!(store, st, target, rng, verbose)
+        for g in store.found, h in (g, n ÷ g)
+            1 < h < n && accept(h) && return h
         end
-    catch e
-        e isa FoundFactor || rethrow()
-        g = gcd(e.d, n)
-        1 < g < n && return g
-        rethrow()
+        d = dependencies_to_factor(store, fb, kn, n, rng, accept)
+        d !== nothing && return d
+        target += 64
     end
 end
 
@@ -122,16 +120,12 @@ function split_composite(m::BigInt; rng, verbose::Bool = false)
         return siqs_split(m; rng = rng, verbose = verbose)
     end
     # 19–39 digits: multiply by a prime (≥ 4 digits, so no factor < 1000) so the work number has
-    # ≥ 41 digits, then keep gcds with m.
+    # ≥ 41 digits. Only divisors that split `m` are accepted, so the lift prime itself is skipped
+    # without discarding the sieve run.
     pdig = max(41 - d, 4)
-    while true
-        P = next_prime(BigInt(10)^(pdig - 1) + rand(rng, 1:10^min(pdig - 2, 15)))
-        N = m * P
-        g = siqs_split(N; rng = rng, verbose = verbose)
-        for c in (gcd(g, m), gcd(N ÷ g, m))
-            1 < c < m && return c
-        end
-    end
+    P = next_prime(BigInt(10)^(pdig - 1) + rand(rng, 1:10^min(pdig - 2, 15)))
+    g = siqs_split(m * P; rng = rng, verbose = verbose, accept = h -> (c = gcd(h, m); 1 < c < m))
+    return gcd(g, m)
 end
 
 """

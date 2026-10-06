@@ -48,3 +48,16 @@ end
     p1 = F.next_prime(big"10"^16 + 12345); p2 = F.next_prime(big"10"^16 + 99999); p3 = F.next_prime(big"10"^17 + 777)
     @test F.flintqs(p1 * p2 * p3; rng = rng) == sort([p1, p2, p3])
 end
+
+@testset "siqs_split accept predicate (lift path)" begin
+    rng = Xoshiro(314)
+    m, p, q = semiprime(rng, 19, 20)               # 39-digit m
+    P = F.next_prime(big"1000")                    # 4-digit lift prime: in the factor base, sqrt 0
+    N = m * P
+    accept = h -> (c = gcd(h, m); 1 < c < m)
+    for _ in 1:5                                   # P-only divisors must never be returned
+        d = F.siqs_split(N; rng = rng, accept = accept)
+        @test N % d == 0
+        @test gcd(d, m) in (p, q)
+    end
+end

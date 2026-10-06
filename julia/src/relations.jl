@@ -5,10 +5,6 @@ struct Relation
     fac::Vector{Int32}
 end
 
-struct FoundFactor <: Exception
-    d::BigInt
-end
-
 mutable struct RelationStore
     kn::BigInt
     fulls::Vector{Relation}
@@ -16,18 +12,23 @@ mutable struct RelationStore
     hub::Dict{Int,Relation}
     seen::Set{BigInt}
     npartials::Int
+    found::Vector{BigInt}       # divisors of kn revealed by large primes (gcd(q, kn) > 1)
 end
-RelationStore(kn::BigInt) = RelationStore(kn, Relation[], Relation[], Dict{Int,Relation}(), Set{BigInt}(), 0)
+RelationStore(kn::BigInt) = RelationStore(kn, Relation[], Relation[], Dict{Int,Relation}(), Set{BigInt}(), 0, BigInt[])
 
 nrelations(s::RelationStore) = length(s.fulls) + length(s.combined)
 
-"Divide `p` out of `res` as often as possible; returns (new res, exponent)."
-function strip_prime(res::BigInt, p::Int)
+"""
+Divide `p` out of `res` in place as often as possible and return the exponent. `qb`, `rb`, `pb`
+are caller-owned scratch BigInts so a failed division allocates nothing.
+"""
+function strip_prime!(res::BigInt, p::Int, qb::BigInt, rb::BigInt, pb::BigInt)
+    Base.GMP.MPZ.set_ui!(pb, p)
     e = 0
     while true
-        q, r = divrem(res, p)
-        r == 0 || return res, e
-        res = q
+        Base.GMP.MPZ.tdiv_qr!(qb, rb, res, pb)
+        iszero(rb) || return e
+        Base.GMP.MPZ.set!(res, qb)
         e += 1
     end
 end
@@ -47,10 +48,11 @@ function try_candidate(st::SIQSState, sv::Vector{UInt8}, i0::Int)
     fac = Int32[]
     Q < 0 && push!(fac, Int32(1))
     target = ndigits(res, base = 2) - P.errorbits
+    qb, rb, pb = BigInt(), BigInt(), BigInt()
 
     extra = 0
     for ip in 1:P.firstprime
-        res, e = strip_prime(res, fb.primes[ip])
+        e = strip_prime!(res, fb.primes[ip], qb, rb, pb)
         if e > 0
             extra += fb.sizes[ip]
             for _ in 1:e
@@ -64,7 +66,7 @@ function try_candidate(st::SIQSState, sv::Vector{UInt8}, i0::Int)
         p = fb.primes[ip]
         xm = mod(x, p)
         (xm == st.r1[ip] || xm == st.r2[ip]) || continue
-        res, e = strip_prime(res, p)
+        e = strip_prime!(res, p, qb, rb, pb)
         for _ in 1:e
             push!(fac, Int32(ip + 1))
         end
@@ -79,8 +81,6 @@ function try_candidate(st::SIQSState, sv::Vector{UInt8}, i0::Int)
 end
 
 function combine(r1::Relation, r2::Relation, q::Int, kn::BigInt)
-    g = gcd(BigInt(q), kn)
-    g == 1 || throw(FoundFactor(g))
     x = mod(r1.x * r2.x * invmod(BigInt(q), kn), kn)
     return Relation(x, vcat(r1.fac, r2.fac))
 end
@@ -93,6 +93,11 @@ function add_candidate!(store::RelationStore, rel::Relation, q::Int)
     else
         store.npartials += 1
         if haskey(store.hub, q)
+            g = gcd(BigInt(q), store.kn)
+            if g != 1                        # q | kn: not invertible, but g is a divisor of kn
+                push!(store.found, g)
+                return nothing
+            end
             push!(store.combined, combine(rel, store.hub[q], q, store.kn))
         else
             store.hub[q] = rel

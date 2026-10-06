@@ -75,3 +75,22 @@ end
         @test mod(rel.x^2, st.kn) == mod(prod(rowval(r) for r in rel.fac; init = BigInt(1)), st.kn)
     end
 end
+
+@testset "candidate evaluation allocates little" begin
+    # Per-candidate BigInt temporaries (one divrem per small prime) drove peak RSS to GBs at 65+ digits.
+    for dig in (50, 60)
+        st, rng = make_state(dig)
+        sv = zeros(UInt8, 2 * st.params.M)
+        F.choose_a!(st, rng); F.init_a!(st)
+        F.sieve!(sv, st); F.scan!(F.RelationStore(st.kn), st, sv)      # compile
+        store = F.RelationStore(st.kn)
+        bytes = 0; ncand = 0
+        for i in 1:6
+            F.next_poly!(st, i); F.sieve!(sv, st)
+            ncand += count(>=(st.params.threshold), sv)
+            bytes += @allocated F.scan!(store, st, sv)
+        end
+        @test ncand > 0
+        @test bytes / ncand < 1500
+    end
+end
