@@ -48,7 +48,7 @@ function choose_a!(st::SIQSState, rng)
         A = BigInt(1)
         while length(idx) < st.s - 1
             i = rand(rng, st.lo:hi)
-            i in idx && continue
+            (i in idx || fb.sqrts[i] == 0) && continue    # sqrt 0 means p | kn: B would vanish mod p
             push!(idx, i)
             A *= fb.primes[i]
         end
@@ -56,7 +56,7 @@ function choose_a!(st::SIQSState, rng)
         j = searchsortedfirst(fb.primes, want)
         for cand in (j, j - 1, j + 1, j - 2, j + 2)
             (st.params.firstprime < cand <= np) || continue
-            cand in idx && continue
+            (cand in idx || fb.sqrts[cand] == 0) && continue
             Afull = A * fb.primes[cand]
             if 0.5 < Afull / st.target < 2.0
                 st.aidx = sort!(vcat(idx, cand))

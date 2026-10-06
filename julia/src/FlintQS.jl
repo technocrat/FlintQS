@@ -102,4 +102,63 @@ function siqs_split(n::BigInt; rng = Random.default_rng(), verbose::Bool = false
     end
 end
 
+"Nontrivial divisor of a composite, non-power `m` with no prime factor below 1000."
+function split_composite(m::BigInt; rng, verbose::Bool = false)
+    d = ndigits(m)
+    if d <= 18
+        g = pollard_rho(m; rng = rng)
+        g === nothing && error("Pollard rho failed on a ≤18-digit number $m")
+        return g
+    elseif d >= 40
+        return siqs_split(m; rng = rng, verbose = verbose)
+    end
+    # 19–39 digits: multiply by a prime (≥ 4 digits, so no factor < 1000) so the work number has
+    # ≥ 41 digits, then keep gcds with m.
+    pdig = max(41 - d, 4)
+    while true
+        P = next_prime(BigInt(10)^(pdig - 1) + rand(rng, 1:10^min(pdig - 2, 15)))
+        N = m * P
+        g = siqs_split(N; rng = rng, verbose = verbose)
+        for c in (gcd(g, m), gcd(N ÷ g, m))
+            1 < c < m && return c
+        end
+    end
+end
+
+"""
+    flintqs(n; rng, verbose) -> Vector{BigInt}
+
+Prime factorization of `n ≥ 1` as a sorted vector with multiplicity (`[]` for `n == 1`).
+Strips factors below 1000, reduces perfect powers, and splits the rest with Pollard rho
+(≤ 18 digits) or the self-initializing quadratic sieve.
+"""
+function flintqs(n::Integer; rng = Random.default_rng(), verbose::Bool = false)
+    n >= 1 || throw(ArgumentError("flintqs requires n ≥ 1, got $n"))
+    m = BigInt(n)
+    out = BigInt[]
+    for p in SMALL_PRIMES
+        while m % p == 0
+            push!(out, BigInt(p))
+            m ÷= p
+        end
+    end
+    stack = BigInt[m]
+    while !isempty(stack)
+        c = pop!(stack)
+        c == 1 && continue
+        if is_probable_prime(c)
+            push!(out, c)
+        elseif (pp = perfect_power(c)) !== nothing
+            b, k = pp
+            for _ in 1:k
+                push!(stack, b)
+            end
+        else
+            d = split_composite(c; rng = rng, verbose = verbose)
+            push!(stack, d, c ÷ d)
+        end
+    end
+    return sort!(out)
+end
+
 end # module
