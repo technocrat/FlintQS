@@ -5,5 +5,7 @@ using Random
 
 include("util.jl")
 include("modarith.jl")
+include("params.jl")
+include("factorbase.jl")
 
 end # module
