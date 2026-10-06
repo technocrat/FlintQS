@@ -1,4 +1,13 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+"""
+    FlintQS
+
+Julia port of William Hart's FlintQS: a self-initializing quadratic sieve with single
+large-prime merging and Block Lanczos linear algebra.
+
+Exports [`flintqs`](@ref) (full prime factorization) and [`siqs_split`](@ref) (one divisor
+of a ≥ 40-digit composite).
+"""
 module FlintQS
 
 using Random

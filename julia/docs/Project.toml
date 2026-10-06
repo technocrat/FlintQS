@@ -1,0 +1,4 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+FlintQS = "f2b7871c-ac93-4404-9113-4d8c0e711c3b"
+MaterialDocs = "10bdffc8-969c-4dd4-83f3-742518eccd6b"
