@@ -7,5 +7,6 @@ include("util.jl")
 include("modarith.jl")
 include("params.jl")
 include("factorbase.jl")
+include("polynomials.jl")
 
 end # module
