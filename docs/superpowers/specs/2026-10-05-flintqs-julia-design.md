@@ -1,7 +1,7 @@
 # FlintQS Julia Port — Design
 
 ## Goal
-A Julia port of William Hart's FlintQS (multiple-polynomial quadratic sieve with
+A Julia port of William Hart's FlintQS (a self-initializing quadratic sieve with
 large-prime relations and Block Lanczos), living in `julia/` inside this fork.
 The C++ in `src/` is left untouched so upstream merges stay clean.
 
@@ -11,12 +11,15 @@ The C++ in `src/` is left untouched so upstream merges stay clean.
 - **Self-contained:** depends only on Julia stdlib (`Random`, `Test`, `Printf`) and GMP via `BigInt`.
 - **In-memory relations:** the C++ file spooling is not ported. This also avoids the file/buffer
   handling behind CVE-2023-29465.
+- **Sign:** the sign of Q(x) is tracked as matrix row 1 (the C++ ignores it).
+- **License:** this is a port of GPL-2.0-or-later code, so `julia/` is GPL-2.0-or-later.
 - **Out of scope:** parallelism, Pari integration, factor-tree output.
 
 ## Success criteria
 - `flintqs(n::BigInt)` returns a nontrivial factorization of composite `n`, verified by
   multiplying the factors back.
-- Correct on random semiprimes of 20, 30, 40 and 50 digits (60 is a stretch target).
+- Correct on random semiprimes of 40, 50 and 60 digits, and (via a lift to 40 digits) 19-39 digits.
+  The C++ tables start at 40 digits (`MINDIG 40`); inputs of <= 18 digits use Pollard rho.
 - Benchmark script reports wall time and peak memory per digit size.
 
 ## Layout (`julia/`)
