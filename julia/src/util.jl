@@ -118,3 +118,21 @@ function pollard_rho(n::BigInt; maxiter::Int = 5_000_000, rng = Random.default_r
     end
     return nothing
 end
+
+"Random prime with length 'digits'"
+function randomprime(digits::Integer)::BigInt
+    if digits <= 0
+        error("randomdigits(digits), digits must be > 0")
+    end
+    local myprime
+    while true
+        lower = BigInt(10) ^ (digits - 1)
+        upper = (BigInt(10) ^ digits) - 1
+        n = rand(lower:upper)
+        myprime = next_prime(n)
+        if myprime <= upper
+            break
+        end
+    end
+    myprime
+end
