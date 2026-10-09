@@ -11,7 +11,6 @@ of a ≥ 40-digit composite).
 module FlintQS
 
 using Random
-
 include("util.jl")
 include("modarith.jl")
 include("params.jl")
@@ -36,8 +35,8 @@ function collect_relations!(store::RelationStore, st::SIQSState, target::Int, rn
             scan!(store, st, sv)
             curves += 1
         end
-        verbose && println("curves=$curves full=$(length(store.fulls)) combined=$(length(store.combined)) ",
-                           "partials=$(store.npartials) target=$target")
+        # fulls $(length(store.fulls)), combined $(length(store.combined)), partials $(store.npartials)
+        verbose && print("$(nrelations(store)) of $target relations\r")
     end
     return store
 end
@@ -91,20 +90,29 @@ Return a nontrivial divisor of the composite `n` using the self-initializing qua
 the remaining dependencies, and further sieving, until one is accepted.
 """
 function siqs_split(n::BigInt; rng = Random.default_rng(), verbose::Bool = false, accept = _ -> true)
+    if verbose
+
+    end
+    verbose && println("Choosing Parameters...")
     P = params_for(ndigits(n))
+    verbose && println("Choosing Multiplier...")
     k = knuth_schroeppel(n)
     kn = k * n
+    verbose && println("Building Factor Base...")
     fb = build_factorbase(kn, k, P.nprimes)
     st = SIQSState(kn, fb, P)
     store = RelationStore(kn)
     target = P.nprimes + 64
     while true
+        verbose && println("Sieving...")
         collect_relations!(store, st, target, rng, verbose)
         for g in store.found, h in (g, n ÷ g)
             1 < h < n && accept(h) && return h
         end
+        verbose && println("\nExtracting Factors...")
         d = dependencies_to_factor(store, fb, kn, n, rng, accept)
         d !== nothing && return d
+        verbose && println("Sieving Additional Relations...")
         target += 64
     end
 end
@@ -116,13 +124,13 @@ function split_composite(m::BigInt; rng, verbose::Bool = false)
         g = pollard_rho(m; rng = rng)
         g === nothing && error("Pollard rho failed on a ≤18-digit number $m")
         return g
-    elseif d >= 40
+    elseif d >= 30
         return siqs_split(m; rng = rng, verbose = verbose)
     end
-    # 19–39 digits: multiply by a prime (≥ 4 digits, so no factor < 1000) so the work number has
-    # ≥ 41 digits. Only divisors that split `m` are accepted, so the lift prime itself is skipped
+    # 19–29 digits: multiply by a prime (≥ 4 digits, so no factor < 1000) so the work number has
+    # ≥ 31 digits. Only divisors that split `m` are accepted, so the lift prime itself is skipped
     # without discarding the sieve run.
-    pdig = max(41 - d, 4)
+    pdig = max(31 - d, 4)
     P = next_prime(BigInt(10)^(pdig - 1) + rand(rng, 1:10^min(pdig - 2, 15)))
     g = siqs_split(m * P; rng = rng, verbose = verbose, accept = h -> (c = gcd(h, m); 1 < c < m))
     return gcd(g, m)
@@ -131,12 +139,13 @@ end
 """
     flintqs(n; rng, verbose) -> Vector{BigInt}
 
-Prime factorization of `n ≥ 1` as a sorted vector with multiplicity (`[]` for `n == 1`).
+Prime factorization of `n > 1` as a sorted vector with multiplicity (`[]` for `n == 1`).
 Strips factors below 1000, reduces perfect powers, and splits the rest with Pollard rho
 (≤ 18 digits) or the self-initializing quadratic sieve.
 """
 function flintqs(n::Integer; rng = Random.default_rng(), verbose::Bool = false)
-    n >= 1 || throw(ArgumentError("flintqs requires n ≥ 1, got $n"))
+    n > 0 || throw(ArgumentError("flintqs requires n > 0, got $n"))
+    n == 1 && return BigInt[]
     m = BigInt(n)
     out = BigInt[]
     for p in SMALL_PRIMES
@@ -165,3 +174,7 @@ function flintqs(n::Integer; rng = Random.default_rng(), verbose::Bool = false)
 end
 
 end # module
+
+
+
+

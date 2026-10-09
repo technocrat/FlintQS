@@ -118,3 +118,4 @@ function pollard_rho(n::BigInt; maxiter::Int = 5_000_000, rng = Random.default_r
     end
     return nothing
 end
+
