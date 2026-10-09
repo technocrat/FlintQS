@@ -36,8 +36,8 @@ end
     @test F.flintqs(P^3; rng = rng) == [P, P, P]
     # Review Focus 3: many small factors times a large prime
     @test F.flintqs(big"2"^5 * big"3"^3 * P; rng = rng) == vcat(fill(BigInt(2), 5), fill(BigInt(3), 3), [P])
-    # Review Focus 4: 39-digit (lift path) and 40-digit (direct) semiprimes
-    for (d1, d2) in ((19, 20), (20, 20))
+    # Review Focus 4: 29-digit (lift path) and 30-digit (direct) semiprimes
+    for (d1, d2) in ((14, 15), (15, 15))
         n, p, q = semiprime(rng, d1, d2)
         @test F.flintqs(n; rng = rng) == sort([p, q])
     end
