@@ -144,7 +144,8 @@ Strips factors below 1000, reduces perfect powers, and splits the rest with Poll
 (≤ 18 digits) or the self-initializing quadratic sieve.
 """
 function flintqs(n::Integer; rng = Random.default_rng(), verbose::Bool = false)
-    n > 1 || throw(ArgumentError("flintqs requires n > 1, got $n"))
+    n > 0 || throw(ArgumentError("flintqs requires n > 0, got $n"))
+    n == 1 && return BigInt[]
     m = BigInt(n)
     out = BigInt[]
     for p in SMALL_PRIMES
