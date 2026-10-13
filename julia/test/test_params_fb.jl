@@ -8,10 +8,10 @@ const F = FlintQS
     @test F.params_for(60).nprimes == 3000
     @test F.params_for(91).nprimes == 80000
     @test F.params_for(91).threshold == 102
-    @test F.params_for(92).nprimes == 64000
-    @test_throws ArgumentError F.params_for(39)
-    # table lengths are consistent (52 rows, digits 40..91)
-    for d in 40:91
+    @test F.params_for(92).nprimes == 80004
+    @test_throws ArgumentError F.params_for(29)
+    # table lengths are consistent (62 rows, digits 30..91)
+    for d in 30:91
         q = F.params_for(d)
         @test q.largeprime > 1000 && q.threshold > q.errorbits
     end

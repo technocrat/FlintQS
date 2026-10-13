@@ -2,15 +2,30 @@ using Test, Random
 using FlintQS
 const F = FlintQS
 
+function randomprime(rng, digits::Integer)::BigInt
+    if digits <= 0
+        error("randomprime(digits), digits must be > 0")
+    end
+    local myprime
+    lower = BigInt(10) ^ (digits - 1)
+    upper = (BigInt(10) ^ digits) - 1
+    while true
+        myprime = F.next_prime(rand(rng, lower:upper))
+        if myprime <= upper
+            break
+        end
+    end
+    myprime
+end
+
 function semiprime(rng, d1, d2)
-    p = F.next_prime(BigInt(10)^(d1 - 1) + rand(rng, 1:10^6))
-    q = F.next_prime(BigInt(10)^(d2 - 1) + rand(rng, 1:10^6))
+    p, q = randomprime(rng, d1), randomprime(rng, d2)
     p == q ? semiprime(rng, d1, d2) : (p * q, p, q)
 end
 
 @testset "siqs_split" begin
     rng = Xoshiro(2024)
-    for (d1, d2) in ((20, 21), (25, 26))        # 41- and 51-digit semiprimes
+    for (d1, d2) in ((15, 16), (20, 21), (25, 26))        # 31- , 41- and 51-digit semiprimes
         n, p, q = semiprime(rng, d1, d2)
         d = F.siqs_split(n; rng = rng)
         @test 1 < d < n && n % d == 0
@@ -36,8 +51,8 @@ end
     @test F.flintqs(P^3; rng = rng) == [P, P, P]
     # Review Focus 3: many small factors times a large prime
     @test F.flintqs(big"2"^5 * big"3"^3 * P; rng = rng) == vcat(fill(BigInt(2), 5), fill(BigInt(3), 3), [P])
-    # Review Focus 4: 39-digit (lift path) and 40-digit (direct) semiprimes
-    for (d1, d2) in ((19, 20), (20, 20))
+    # Review Focus 4: just below and above lift path semiprimes
+    for (d1, d2) in ((14, 14), (14, 15), (15, 15), (15, 16), (16, 16) )
         n, p, q = semiprime(rng, d1, d2)
         @test F.flintqs(n; rng = rng) == sort([p, q])
     end
@@ -51,7 +66,7 @@ end
 
 @testset "siqs_split accept predicate (lift path)" begin
     rng = Xoshiro(314)
-    m, p, q = semiprime(rng, 19, 20)               # 39-digit m
+    m, p, q = semiprime(rng, 14, 14)               # 28-digit m
     P = F.next_prime(big"1000")                    # 4-digit lift prime: in the factor base, sqrt 0
     N = m * P
     accept = h -> (c = gcd(h, m); 1 < c < m)
